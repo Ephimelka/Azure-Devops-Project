@@ -1,0 +1,103 @@
+# azure-pipelines.yml
+
+# Trigger the pipeline on changes to the main branch
+trigger:
+  branches:
+    include:
+      - main  # Adjust this to your branch
+
+# Use the latest Ubuntu VM image
+pool:
+  vmImage: 'ubuntu-latest'
+
+# Define build and deployment stages
+stages:
+  - stage: Build
+    displayName: 'Build Stage'
+    jobs:
+      - job: Build
+        displayName: 'Build Job'
+        steps:
+          # Checkout code
+          - checkout: self
+
+          # Install Node.js
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '22.x'  # Specify your Node.js version here
+            displayName: 'Install Node.js'
+
+          # Install npm dependencies
+          - script: |
+              npm install
+            displayName: 'Install Dependencies'
+
+          # Build the application
+          - script: |
+              npm run build
+            displayName: 'Build Application'
+
+  - stage: Deploy
+    displayName: 'Deploy Stage'
+    jobs:
+      - job: Deploy
+        displayName: 'Deployment Job'
+        timeoutInMinutes: 120  # Set job timeout to 120 minutes
+        steps:
+          # Checkout code
+          - checkout: self
+
+          # Install Terraform using the command line
+          - script: |
+              curl -o terraform.zip https://releases.hashicorp.com/terraform/1.0.11/terraform_1.0.11_linux_amd64.zip
+              unzip terraform.zip
+              sudo mv terraform /usr/local/bin/
+              terraform -version
+            displayName: 'Install Terraform'
+
+          # Authenticate with Azure using a Service Principal and enable Terraform debugging
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: 'Abel-serviceP-conn'  # Azure DevOps service connection
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                
+                
+                # Enable Terraform debug logging
+                export TF_LOG=DEBUG
+                export TF_LOG_PATH="terraform_debug.log"  # Specify a log file
+
+                # Set the required Terraform variables as environment variables
+                export TF_VAR_client_id=$(ARM_CLIENT_ID)
+                export TF_VAR_client_secret=$(ARM_CLIENT_SECRET)
+                export TF_VAR_tenant_id=$(ARM_TENANT_ID)
+                export TF_VAR_subscription_id=$(ARM_SUBSCRIPTION_ID)
+
+                # Change to the directory containing Terraform files if necessary
+                # cd terraform
+
+                # Terraform commands with debug logging
+                terraform init | tee -a $TF_LOG_PATH
+                terraform plan -target=module.Create_App_Service | tee -a $TF_LOG_PATH
+                terraform apply -target=module.Create_App_Service -auto-approve | tee -a $TF_LOG_PATH
+
+            displayName: 'Provision Infrastructure with Terraform'
+            timeoutInMinutes: 90  # Specify timeout for this step, in minutes
+
+            
+          # Deploy the Node.js app to the Azure App Service
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: 'Abel-serviceP-conn'
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                # Package and deploy to Azure App Service
+                zip -r node_app.zip .   # Make sure you're in the right directory before zipping
+                az webapp deployment source config-zip \
+                  --resource-group "AbelTeraRG" \
+                  --name "Abel-Project2232" \
+                  --src "node_app.zip"
+            displayName: 'Deploy Node.js App to App Service'
+            timeoutInMinutes: 30  # Adjust based on deployment duration
