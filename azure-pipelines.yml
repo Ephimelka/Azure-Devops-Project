@@ -58,7 +58,7 @@ stages:
           # Authenticate with Azure using a Service Principal and enable Terraform debugging
           - task: AzureCLI@2
             inputs:
-              azureSubscription: 'Abel-serviceP-conn'  # Azure DevOps service connection
+              azureSubscription: 'ephi-service-conn'  # Azure DevOps service connection
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: |
