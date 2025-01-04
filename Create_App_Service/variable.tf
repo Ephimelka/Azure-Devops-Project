@@ -1,7 +1,7 @@
 # variables.tf
 variable "resource_group_name" {
   type    = string
-  default = "AbelTeraRG"
+  default = "EphiProject"
 }
 
 variable "location" {
@@ -11,10 +11,10 @@ variable "location" {
 
 variable "app_service_plan_name" {
   type    = string
-  default = "AbelASP"
+  default = "EphiASP"
 }
 
 variable "app_service_name" {
   type    = string
-  default = "Abel-Project2232"
+  default = "Ephi-DEVops"
 }
