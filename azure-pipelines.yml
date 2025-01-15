@@ -72,7 +72,7 @@ stages:
           # Install Node.js
           - task: NodeTool@0
             inputs:
-              versionSpec: '22.x'  # Specify your Node.js version here
+              versionSpec: '20.x'  # Specify your Node.js version here
             displayName: 'Install Node.js'
 
           # Install npm dependencies
@@ -84,13 +84,22 @@ stages:
           - script: |
               npm run build
             displayName: 'Build Application'
-             # Deploy the Node.js app to the Azure App Service
-              # Deploy the Node.js app to the Azure App Service
+
+          # Create a ZIP file of the build output
+          - task: ArchiveFiles@2
+            inputs:
+              rootFolderOrFile: '$(Build.ArtifactStagingDirectory)'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+              replaceExistingArchive: true
+            displayName: 'Archive Build Output'
+
+          # Deploy the Node.js app to the Azure App Service
           - task: AzureRmWebAppDeployment@4
             inputs:
-                ConnectionType: 'AzureRM'
-                azureSubscription: 'ephi-service-conn'
-                appType: 'webAppLinux'
-                WebAppName: 'EphiDevops'
-                packageForLinux: '$(System.DefaultWorkingDirectory)/**/*.zip'
-            
+              ConnectionType: 'AzureRM'
+              azureSubscription: 'ephi-service-conn'
+              appType: 'webAppLinux'
+              WebAppName: 'EphiDevops'
+              packageForLinux: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
