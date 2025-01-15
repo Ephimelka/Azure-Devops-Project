@@ -1,70 +1,72 @@
-# azure-pipelines.yml
-
 # Trigger the pipeline on changes to the main branch
 trigger:
   branches:
     include:
-      - main  # Adjust this to your branch
+      - main  # Specify the branch to trigger this pipeline
+
+# Define variables for reusability
+variables:
+  terraformVersion: '1.0.11'
+  buildTimeout: 120
+  appServiceName: 'EphiDevops'
+  nodeVersion: '22.x'
 
 # Use the latest Ubuntu VM image
 pool:
   vmImage: 'ubuntu-latest'
 
-# Define build and deployment stages
+# Define stages for the pipeline
 stages:
-  - stage: Teraform
-    displayName: 'teraform Stage'
+  - stage: Terraform
+    displayName: 'Terraform Infrastructure Setup'
     jobs:
-      - job: teraform
-        displayName: 'teraform Job'
-        timeoutInMinutes: 120  # Set job timeout to 120 minutes
+      - job: Terraform
+        displayName: 'Terraform Provisioning'
+        timeoutInMinutes: ${{ variables.buildTimeout }}
         steps:
           # Checkout code
           - checkout: self
 
-          # Install Terraform using the command line
+          # Install Terraform manually
           - script: |
-              curl -o terraform.zip https://releases.hashicorp.com/terraform/1.0.11/terraform_1.0.11_linux_amd64.zip
+              echo "Installing Terraform..."
+              curl -o terraform.zip https://releases.hashicorp.com/terraform/${{ variables.terraformVersion }}/terraform_${{ variables.terraformVersion }}_linux_amd64.zip
               unzip terraform.zip
               sudo mv terraform /usr/local/bin/
               terraform -version
             displayName: 'Install Terraform'
 
-          # Authenticate with Azure using a Service Principal and enable Terraform debugging
+          # Authenticate with Azure and execute Terraform
           - task: AzureCLI@2
             inputs:
-              azureSubscription: 'ephi-service-conn'  # Azure DevOps service connection
+              azureSubscription: 'ephi-service-conn'
               scriptType: bash
               scriptLocation: inlineScript
               inlineScript: |
-                
-                
-                # Enable Terraform debug logging
-                export TF_LOG=DEBUG
-                export TF_LOG_PATH="terraform_debug.log"  # Specify a log file
+                # Enable Terraform logging
+                export TF_LOG=INFO
+                export TF_LOG_PATH="terraform.log"
 
-                # Set the required Terraform variables as environment variables
-                export TF_VAR_client_id=$(ARM_CLIENT_ID)
-                export TF_VAR_client_secret=$(ARM_CLIENT_SECRET)
-                export TF_VAR_tenant_id=$(ARM_TENANT_ID)
-                export TF_VAR_subscription_id=$(ARM_SUBSCRIPTION_ID)
+                # Set required Terraform environment variables
+                export TF_VAR_client_id=$ARM_CLIENT_ID
+                export TF_VAR_client_secret=$ARM_CLIENT_SECRET
+                export TF_VAR_tenant_id=$ARM_TENANT_ID
+                export TF_VAR_subscription_id=$ARM_SUBSCRIPTION_ID
 
-                # Change to the directory containing Terraform files if necessary
-                # cd terraform
-
-                # Terraform commands with debug logging
+                # Initialize Terraform
                 terraform init | tee -a $TF_LOG_PATH
+
+                # Plan and Apply specific module
                 terraform plan -target=module.Create_App_Service | tee -a $TF_LOG_PATH
                 terraform apply -target=module.Create_App_Service -auto-approve | tee -a $TF_LOG_PATH
-
-            displayName: 'Provision Infrastructure with Terraform'
-            timeoutInMinutes: 90  # Specify timeout for this step, in minutes
+            displayName: 'Execute Terraform Scripts'
 
   - stage: Build
-    displayName: 'Build Stage'
+    displayName: 'Build Application'
     jobs:
       - job: Build
         displayName: 'Build Job'
+        timeoutInMinutes: ${{ variables.buildTimeout }}
         steps:
           # Checkout code
           - checkout: self
@@ -72,12 +74,12 @@ stages:
           # Install Node.js
           - task: NodeTool@0
             inputs:
-              versionSpec: '22.x'  # Specify your Node.js version here
+              versionSpec: ${{ variables.nodeVersion }}
             displayName: 'Install Node.js'
 
-          # Install npm dependencies
+          # Install dependencies
           - script: |
-              npm install
+              npm ci  # Cleaner and faster alternative to npm install
             displayName: 'Install Dependencies'
 
           # Build the application
@@ -85,20 +87,33 @@ stages:
               npm run build
             displayName: 'Build Application'
 
-          # List the contents of the build directory
-          - script: |
-              ls -la $(Build.ArtifactStagingDirectory)
-            displayName: 'List Build Directory Contents'
-
-          # Create a ZIP file of the build output
+          # Archive the build output
           - task: ArchiveFiles@2
             inputs:
-              rootFolderOrFile: '$(Build.ArtifactStagingDirectory)'
+              rootFolderOrFile: '$(Build.SourcesDirectory)/build'  # Specify the build directory
               includeRootFolder: false
               archiveType: 'zip'
               archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
               replaceExistingArchive: true
             displayName: 'Archive Build Output'
+
+          # Publish the archive as a build artifact
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+              ArtifactName: 'BuildOutput'
+            displayName: 'Publish Build Artifact'
+
+  - stage: Deploy
+    displayName: 'Deploy to Azure'
+    dependsOn: Build
+    jobs:
+      - job: Deploy
+        displayName: 'Deploy Job'
+        timeoutInMinutes: ${{ variables.buildTimeout }}
+        steps:
+          # Checkout code (optional, if deployment scripts are in repo)
+          - checkout: self
 
           # Deploy the Node.js app to the Azure App Service
           - task: AzureRmWebAppDeployment@4
@@ -106,5 +121,6 @@ stages:
               ConnectionType: 'AzureRM'
               azureSubscription: 'ephi-service-conn'
               appType: 'webAppLinux'
-              WebAppName: 'EphiDevops'
+              WebAppName: ${{ variables.appServiceName }}
               packageForLinux: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+            displayName: 'Deploy Application to Azure App Service'
