@@ -11,10 +11,10 @@ variable "location" {
 
 variable "app_service_plan_name" {
   type    = string
-  default = "EphiASP"
+  default = "AspEphi"
 }
 
 variable "app_service_name" {
   type    = string
-  default = "Ephi-DEVops"
+  default = "EphiDevops"
 }
