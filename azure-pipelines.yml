@@ -12,36 +12,11 @@ pool:
 
 # Define build and deployment stages
 stages:
-  - stage: Build
-    displayName: 'Build Stage'
+  - stage: Teraform
+    displayName: 'teraform Stage'
     jobs:
-      - job: Build
-        displayName: 'Build Job'
-        steps:
-          # Checkout code
-          - checkout: self
-
-          # Install Node.js
-          - task: NodeTool@0
-            inputs:
-              versionSpec: '22.x'  # Specify your Node.js version here
-            displayName: 'Install Node.js'
-
-          # Install npm dependencies
-          - script: |
-              npm install
-            displayName: 'Install Dependencies'
-
-          # Build the application
-          - script: |
-              npm run build
-            displayName: 'Build Application'
-
-  - stage: Deploy
-    displayName: 'Deploy Stage'
-    jobs:
-      - job: Deploy
-        displayName: 'Deployment Job'
+      - job: teraform
+        displayName: 'teraform Job'
         timeoutInMinutes: 120  # Set job timeout to 120 minutes
         steps:
           # Checkout code
@@ -85,8 +60,31 @@ stages:
             displayName: 'Provision Infrastructure with Terraform'
             timeoutInMinutes: 90  # Specify timeout for this step, in minutes
 
-            
-          # Deploy the Node.js app to the Azure App Service
+  - stage: Build
+    displayName: 'Build Stage'
+    jobs:
+      - job: Build
+        displayName: 'Build Job'
+        steps:
+          # Checkout code
+          - checkout: self
+
+          # Install Node.js
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '22.x'  # Specify your Node.js version here
+            displayName: 'Install Node.js'
+
+          # Install npm dependencies
+          - script: |
+              npm install
+            displayName: 'Install Dependencies'
+
+          # Build the application
+          - script: |
+              npm run build
+            displayName: 'Build Application'
+             # Deploy the Node.js app to the Azure App Service
           - task: AzureCLI@2
             inputs:
               azureSubscription: 'ephi-service-conn'
