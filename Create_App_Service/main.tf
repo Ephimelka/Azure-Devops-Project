@@ -11,6 +11,7 @@ resource "azurerm_app_service_plan" "appserviceplan" {
     tier = "Standard"
     size = "S1"
   }
+  reserved = true  # This is required for Linux
 }
 
 resource "azurerm_linux_web_app" "appservice" {
@@ -20,9 +21,7 @@ resource "azurerm_linux_web_app" "appservice" {
   service_plan_id     = azurerm_app_service_plan.appserviceplan.id
 
   site_config {
-    application_stack {
-      node_version = "20-lts"
-    }
+    linux_fx_version = "NODE|20-lts"
   }
 
   app_settings = {
