@@ -72,7 +72,7 @@ stages:
           # Install Node.js
           - task: NodeTool@0
             inputs:
-              versionSpec: '20.x'  # Specify your Node.js version here
+              versionSpec: '22.x'  # Specify your Node.js version here
             displayName: 'Install Node.js'
 
           # Install npm dependencies
@@ -84,6 +84,11 @@ stages:
           - script: |
               npm run build
             displayName: 'Build Application'
+
+          # List the contents of the build directory
+          - script: |
+              ls -la $(Build.ArtifactStagingDirectory)
+            displayName: 'List Build Directory Contents'
 
           # Create a ZIP file of the build output
           - task: ArchiveFiles@2
