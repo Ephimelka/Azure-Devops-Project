@@ -1,7 +1,6 @@
-# variables.tf
 variable "resource_group_name" {
   type    = string
-  default = "EphiProjectt"
+  default = "Projectephirg"
 }
 
 variable "location" {
@@ -11,10 +10,10 @@ variable "location" {
 
 variable "app_service_plan_name" {
   type    = string
-  default = "AspEphi"
+  default = "ephiasp"
 }
 
 variable "app_service_name" {
   type    = string
-  default = "EphiDevops"
+  default = "Ephimelka"
 }
